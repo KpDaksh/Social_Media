@@ -15,7 +15,6 @@ const useSignup = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      console.log("User created:", user); // Debugging line to check user creation
       
 
       // Update display name
