@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import useLogin from './useLogin'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import useGoogleSignIn from './useGoogleSignIn'
-import { updatePassword, sendEmailVerification } from 'firebase/auth'
+import { updatePassword, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '../../services/firebase'
 
 const Login = () => {
@@ -15,7 +15,13 @@ const Login = () => {
   const [settingPassword, setSettingPassword] = useState(false)
   const [passwordError, setPasswordError] = useState(null)
   const [passwordSuccess, setPasswordSuccess] = useState(null)
+  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError, setResetError] = useState(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from?.pathname || '/profile'
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -24,7 +30,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const user = await login(form)
-    if (user) navigate('/profile')
+  if (user) navigate(from, { replace: true })
   }
 
   const handleGoogle = async () => {
@@ -53,7 +59,7 @@ const Login = () => {
       }
 
       if (user) {
-        navigate('/profile')
+  navigate(from, { replace: true })
       }
     } catch (e) {
       console.error('handleGoogle error:', e)
@@ -89,7 +95,7 @@ const Login = () => {
       try {
         await sendEmailVerification(auth.currentUser)
         setPasswordSuccess('Password saved. A verification email has been sent to your address.')
-      } catch (verr) {
+      } catch {
         // verification email failed, still proceed
         setPasswordSuccess('Password saved. (Failed to send verification email)')
       }
@@ -97,7 +103,7 @@ const Login = () => {
       // keep modal open to show success, or auto-close after a delay
       setTimeout(() => {
         setShowSetPassword(false)
-        navigate('/profile')
+  navigate(from, { replace: true })
       }, 1400)
     } catch (err) {
       setSettingPassword(false)
@@ -188,13 +194,62 @@ const Login = () => {
               </div>
 
               <div className="flex items-center justify-between text-sm text-gray-400 mt-3">
-                <a href="#" className="hover:underline">Forgot password?</a>
+                <button type="button" onClick={() => { setShowResetPassword(true); setResetEmail(form.email || '') }} className="hover:underline">Forgot password?</button>
                 <Link to="/signup" className="text-blue-400 hover:underline">Create account</Link>
               </div>
             </form>
           </div>
         </div>
       </div>
+
+      {/* Reset password modal */}
+      {showResetPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md bg-[#0b0d12] p-6 rounded-lg border border-gray-800">
+            <h3 className="text-white text-lg font-semibold mb-3">Reset your password</h3>
+            <p className="text-gray-400 text-sm mb-4">Enter your account email and we'll send a password reset link.</p>
+
+            <input
+              type="email"
+              placeholder="Email"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              className="w-full p-3 rounded-md bg-[#0f1620] text-gray-200 placeholder-gray-500 border border-gray-800 mb-3"
+            />
+            {resetError && <div className="text-red-400 text-sm mb-2">{resetError}</div>}
+            {passwordSuccess && <div className="text-green-400 text-sm mb-2">{passwordSuccess}</div>}
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShowResetPassword(false)} className="px-4 py-2 rounded bg-gray-700 text-white">Cancel</button>
+              <button
+                onClick={async () => {
+                  setResetError(null)
+                  setPasswordSuccess(null)
+                  if (!resetEmail) {
+                    setResetError('Please enter your email address.')
+                    return
+                  }
+                  setResetLoading(true)
+                  try {
+                    await sendPasswordResetEmail(auth, resetEmail)
+                    setPasswordSuccess('Password reset email sent. Check your inbox.')
+                    setResetLoading(false)
+                    // keep modal open briefly to show message
+                    setTimeout(() => setShowResetPassword(false), 1400)
+                  } catch (err) {
+                    setResetLoading(false)
+                    const msg = err?.message || 'Failed to send reset email. Try again.'
+                    setResetError(msg)
+                  }
+                }}
+                disabled={resetLoading}
+                className="px-4 py-2 rounded bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
+              >
+                {resetLoading ? 'Sending...' : 'Send reset email'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Set password modal for new Google users */}
       {showSetPassword && (

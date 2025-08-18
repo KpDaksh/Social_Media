@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import useSignup from "./useSignUp";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import useGoogleSignIn from './useGoogleSignIn'
 
 const Signup = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/profile'
   const { signup, error, loading } = useSignup();
   const { signInWithGoogle, loading: gLoading, error: gError } = useGoogleSignIn();
   const [form, setForm] = useState({ email: "", password: "", displayName: "" });
@@ -17,13 +19,13 @@ const Signup = () => {
     e.preventDefault();
     const user = await signup(form);
     if (user) {
-      navigate("/profile");
+      navigate(from, { replace: true });
     }
   };
 
   const handleGoogle = async () => {
-    const user = await signInWithGoogle();
-    if (user) navigate('/profile');
+  const user = await signInWithGoogle();
+  if (user) navigate(from, { replace: true });
   };
 
   // Map Firebase error messages to friendly messages
